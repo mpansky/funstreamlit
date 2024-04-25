@@ -1,53 +1,46 @@
-# Import libraries
 import streamlit as st
 import pandas as pd
 import networkx as nx
 from pyvis.network import Network
-import tempfile
+import matplotlib.pyplot as plt
 
-# Simulate Data Frame
-@st.cache
-def load_data():
-    # Simulated data
-    data = {
-        'website': ['SiteA', 'SiteB', 'SiteC', 'SiteA', 'SiteD'],
-        'advertiser': ['Ad1', 'Ad2', 'Ad3', 'Ad1', 'Ad2'],
-        'impressions': [100, 150, 200, 250, 300]
-    }
-    return pd.DataFrame(data)
+# Data Preparation
+data = {
+    'Campaign_ID': [1000, 1000, 1000, 1001, 1003],
+    'Advertiser': ['Advertiser_A', 'Advertiser_B', 'Advertiser_C', 'Advertiser_A', 'Advertiser_A'],
+    'Impressions': [9684, 3519, 4752, 1877, 2646],
+    'Clicks': [586, 820, 326, 437, 106]
+}
+df_adtech = pd.DataFrame(data)
 
-# Data preprocessing (example function)
-def preprocess_data(df):
-    # Example preprocessing: filtering based on impressions
-    return df[df['impressions'] > 100]
+# Setup Streamlit
+st.title('AdTech Data Node Graph Visualization')
+metric_choice = st.selectbox('Choose the metric for edges:', ['Impressions', 'Clicks'])
 
-# Visualization as Node Graph
-def visualize_as_nodegraph(df):
-    G = nx.from_pandas_edgelist(df, source='website', target='advertiser')
-    net = Network(height="750px", width="100%", bgcolor="#222222", font_color="white", notebook=True)
-    net.from_nx(G)
-    net.show("graph.html")
-    return "graph.html"
+# Create Graph
+G = nx.Graph()
 
-# Streamlit App
-def main():
-    st.title('AdTech Data Visualization App')
-    
-    # Load and preprocess data
-    data = load_data()
-    processed_data = preprocess_data(data)
-    
-    # Display data table
-    st.write("Processed AdTech Data:")
-    st.dataframe(processed_data)
-    
-    # Visualize data
-    if st.button('Generate Node Graph'):
-        path = visualize_as_nodegraph(processed_data)
-        # Use the HTML file in Streamlit
-        with open(path, 'r') as f:
-            html_file = f.read()
-            st.components.v1.html(html_file, height=800)
+# Adding Nodes
+for node in df_adtech['Campaign_ID'].unique():
+    G.add_node(str(node), title='Campaign', color='blue')
+for node in df_adtech['Advertiser'].unique():
+    G.add_node(node, title='Advertiser', color='red')
 
-if __name__ == "__main__":
-    main()
+# Adding Edges
+for _, row in df_adtech.iterrows():
+    G.add_edge(str(row['Campaign_ID']), row['Advertiser'], weight=row[metric_choice])
+
+# Visualization with PyVis - more interactive
+nt = Network('500px', '800px', notebook=True)
+nt.from_nx(G)
+nt.show('nx.html')
+st.components.v1.html(nt.generate_html(), height=800)
+
+# Alternatively, using NetworkX for simple display
+pos = nx.spring_layout(G, seed=42)  # for consistent layout
+plt.figure(figsize=(10, 7))
+edges = G.edges(data=True)
+weights = [G[u][v]['weight'] / 100 for u, v in edges]
+nx.draw(G, pos, edges=edges, with_labels=True, font_weight='bold', node_color=list(nx.get_node_attributes(G, 'color').values()), width=weights)
+plt.title('Graph Representation with NetworkX')
+st.pyplot(plt)
